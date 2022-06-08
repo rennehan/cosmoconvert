@@ -1,4 +1,12 @@
 # cosmoconvert
+
+## How to setup!
+
+```
+python setup.py build && python setup.py install
+```
+
+## How to run!
 Convert between cosmological simulation formats, why not!
 
 Ex:
