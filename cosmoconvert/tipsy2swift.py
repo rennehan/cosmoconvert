@@ -87,7 +87,7 @@ class tipsy2swift(object):
             header['swift']['time'] = header['time']
             header['swift']['redshift'] = (1.0 / header['time']) - 1.0
         header['swift']['npart'] = np.array([header['ngas'], header['ndark'], 0, 0, header['nstar'], 0])
-        header['swift']['box_size'] = self.box_size / self.hubble_constant # Swift expects Mpc?
+        header['swift']['box_size'] = self.box_size / self.hubble_constant  # Swift expects Mpc?
         header['swift']['omega_matter'] = cosmology['omega_matter']
         header['swift']['omega_lambda'] = cosmology['omega_lambda']
         header['swift']['hubble_constant'] = self.hubble_constant
@@ -331,9 +331,9 @@ class tipsy2swift(object):
 
 
     def _set_swift_units(self):
-        self.swift_length = 3.08567758e24 #3.085678e21 / self.hubble_constant  # 1 kpc/h
-        self.swift_mass = 1.98841e43 #1.989e43 / self.hubble_constant       # 1e10 Msun/h
-        self.swift_velocity = 1.0e5                             # 1 km/s
+        self.swift_length = 3.08567758e24  # 1 Mpc
+        self.swift_mass = 1.98841e43       # 1e10 Msun
+        self.swift_velocity = 1.0e5        # 1 km/s
 
         self.swift_specific_energy = self.swift_velocity**2
         self.swift_density = self.swift_mass / self.swift_length**3
