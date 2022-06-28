@@ -51,7 +51,12 @@ class tipsy2swift(object):
     def __init__(self, snapshot_file, box_size, cosmology, aux_file = None,
                  aux_gas_str = 'fffffffffih',
                  aux_star_str = 'ffffffih',
-                 idnum_file = None):
+                 idnum_file = None,
+                 is_IC = False):
+        if not is_IC:
+            print('Non-IC conversion not supported.')
+            return
+
         self.box_size = box_size
         self.hubble_constant = cosmology['hubble_constant']
         # cosmology['omega0'], cosmology['omega_lambda'] are required
@@ -86,12 +91,20 @@ class tipsy2swift(object):
         else:
             header['swift']['time'] = header['time']
             header['swift']['redshift'] = (1.0 / header['time']) - 1.0
-        header['swift']['npart'] = np.array([header['ngas'], header['ndark'], 0, 0, header['nstar'], 0])
+        header['swift']['npart'] = np.array([header['ngas'], header['ndark'], 0, 0, header['nstar'], 0, 0])
         header['swift']['box_size'] = self.box_size / self.hubble_constant  # Swift expects Mpc?
         header['swift']['omega_matter'] = cosmology['omega_matter']
+        header['swift']['omega_baryon'] = cosmology['omega_baryon']
         header['swift']['omega_lambda'] = cosmology['omega_lambda']
         header['swift']['hubble_constant'] = self.hubble_constant
         header['swift']['flag_entropy_ics'] = 0
+        header['swift']['flag_metals'] = 9
+
+        header['swift']['unit_current'] = 1.0
+        header['swift']['unit_temperature'] = 1.0
+        header['swift']['unit_length'] = self.swift_length
+        header['swift']['unit_mass'] = self.swift_mass
+        header['swift']['unit_time'] = self.swift_time
 
         util.io.info('Reading %s' % snapshot_file)
         util.io.info('Box size %s Mpc' % box_size)
@@ -103,8 +116,11 @@ class tipsy2swift(object):
         length_factor = self.unit_length / self.swift_length
         time_factor = self.unit_time / self.swift_time
         density_factor = self.unit_density / self.swift_density
-        specific_energy_factor = 1.0 / self.swift_specific_energy
+        specific_energy_factor =  1.0 / self.swift_specific_energy
         velocity_factor = self.unit_velocity / self.swift_velocity
+
+        # Swift has a scale factor in the internal energy
+        specific_energy_factor *= header['time']**2.0
 
         # Read in all of the snapshot file data and check if it matches
         # what we read in the header. If it doesn't match what is in the
@@ -176,11 +192,14 @@ class tipsy2swift(object):
 
             gas_dict['SmoothingLength'] = gas_data[:, self.hsmooth_idx] * length_factor
 
-            gas_dict['Metallicity'] = np.zeros((header['ngas'], header['swift']['flag_metals']))
-            gas_dict['Metallicity'][:, 0] = gas_data[:, self.metals_gas_idx]
+            #gas_dict['ElementMassFractions'] = np.zeros((header['ngas'], header['swift']['flag_metals']))
+            #gas_dict['MetalMassFractions'] = np.zeros(header['ngas'])
+            #gas_dict['MetalMassFractions'] = gas_data[:, self.metals_gas_idx]
 
             # Save this for later when we have electron abundances
             int_energies = gas_data[:, self.temp_idx]
+            temp_to_u = util.const.KBOLTZ / (0.59 * util.const.PROTON_MASS * (util.const.GAMMA - 1.0))
+            gas_dict['InternalEnergy'] = int_energies * temp_to_u * specific_energy_factor
 
             # We don't need this anymore, free the memory.
             del gas_data
@@ -242,10 +261,10 @@ class tipsy2swift(object):
             for i, j in enumerate(vel_indices):
                 star_dict['Velocities'][:, i] = star_data[:, j] * velocity_factor
 
-            star_dict['StellarFormationTime'] = star_data[:, self.tform_idx] * time_factor
+            #star_dict['StellarFormationTimes'] = star_data[:, self.tform_idx] * time_factor
 
-            star_dict['Metallicity'] = np.zeros((header['nstar'], header['swift']['flag_metals']))
-            star_dict['Metallicity'][:, 0] = star_data[:, self.metals_star_idx]
+            #star_dict['MetalMassFractions'] = np.zeros(header['nstar'])
+            #star_dict['MetalMassFractions'] = star_data[:, self.metals_star_idx]
 
             del star_data
 
@@ -271,40 +290,43 @@ class tipsy2swift(object):
 
             util.io.info('Successfullly loaded auxiliary file.')
             util.io.info('Preparing gas metal dictionary.')
-
+            
+            # Swift has: H, He, C, N, O, Ne, Mg, Si and Fe
             # TODO: This only works if tipsy_num_metals = 4, in C, O, Si, Fe order
-            gas_dict['Metallicity'][:, 2] = gas_data[:, self.carbon_idx]
-            gas_dict['Metallicity'][:, 4] = gas_data[:, self.oxygen_idx]
-            gas_dict['Metallicity'][:, 7] = gas_data[:, self.silicon_idx]
-            gas_dict['Metallicity'][:, 10] = gas_data[:, self.iron_idx]
+            #gas_dict['ElementMassFractions'][:, 2] = gas_data[:, self.carbon_idx]
+            #gas_dict['ElementMassFractions'][:, 4] = gas_data[:, self.oxygen_idx]
+            #gas_dict['ElementMassFractions'][:, 7] = gas_data[:, self.silicon_idx]
+            #gas_dict['ElementMassFractions'][:, 8] = gas_data[:, self.iron_idx]
 
-            gas_dict['StarFormationRate'] = gas_data[:, self.sfr_idx]
-            gas_dict['DelayTime'] = gas_data[:, self.delay_idx]
-            gas_dict['ElectronAbundance'] = gas_data[:, self.ne_idx]
-            gas_dict['NeutralHydrogenAbundance'] = gas_data[:, self.nh_idx]
+            #gas_dict['StarFormationRates'] = gas_data[:, self.sfr_idx]
+            #gas_dict['DelayTime'] = gas_data[:, self.delay_idx]
+            #gas_dict['ElectronAbundance'] = gas_data[:, self.ne_idx]
+            #gas_dict['NeutralHydrogenAbundance'] = gas_data[:, self.nh_idx]
 
-            mu_mp = 4.0 / (3.0 * util.const.XH + 1.0 + 4.0 * util.const.XH * gas_data[:, self.ne_idx])
-            mu_mp *= util.const.PROTON_MASS
-            real_int_energies = int_energies * util.const.KBOLTZ / (mu_mp * (util.const.GAMMA - 1.0))
-            gas_dict['InternalEnergy'] = real_int_energies * specific_energy_factor  # From cm/s to km/s
+            #mu_mp = 4.0 / (3.0 * util.const.XH + 1.0 + 4.0 * util.const.XH * gas_data[:, self.ne_idx])
+            #mu_mp *= util.const.PROTON_MASS
+            #real_int_energies = int_energies * util.const.KBOLTZ / (mu_mp * (util.const.GAMMA - 1.0))
+            #gas_dict['InternalEnergies'] = real_int_energies * specific_energy_factor  # From cm/s to km/s
 
             del gas_data
 
             util.io.info('Preparing star metal dictionary.')
 
             # TODO: This only works if tipsy_num_metals = 4, in C, O, Si, Fe order
-            star_dict['Metallicity'][:, 2] = star_data[:, self.carbon_idx]
-            star_dict['Metallicity'][:, 4] = star_data[:, self.oxygen_idx]
-            star_dict['Metallicity'][:, 7] = star_data[:, self.silicon_idx]
-            star_dict['Metallicity'][:, 10] = star_data[:, self.iron_idx]
+            #star_dict['ElementMassFractions'][:, 2] = star_data[:, self.carbon_idx]
+            #star_dict['ElementMassFractions'][:, 4] = star_data[:, self.oxygen_idx]
+            #star_dict['ElementMassFractions'][:, 7] = star_data[:, self.silicon_idx]
+            #star_dict['ElementMassFractions'][:, 8] = star_data[:, self.iron_idx]
 
             del star_data
 
-        # Set the Helium mass fraction.
-        if header['ngas'] > 0:
-            gas_dict['Metallicity'][:, 1] = 0.236 + (2.1 * gas_dict['Metallicity'][:, 0])
-        if header['nstar'] > 0:
-            star_dict['Metallicity'][:, 1] = 0.236 + (2.1 * star_dict['Metallicity'][:, 0])
+        # Set the Hydrogen & Helium mass fraction.
+        #if header['ngas'] > 0:
+        #    gas_dict['ElementMassFractions'][:, 1] = 0.236 + (2.1 * gas_dict['MetalMassFractions'])
+        #    gas_dict['ElementMassFractions'][:, 0] = 1.0 - gas_dict['ElementMassFractions'][:, 1] - gas_dict['MetalMassFractions']
+        #if header['nstar'] > 0:
+        #    star_dict['ElementMassFractions'][:, 1] = 0.236 + (2.1 * star_dict['MetalMassFractions'])
+        #    star_dict['ElementMassFractions'][:, 0] = 1.0 - star_dict['ElementMassFractions'][:, 1] - star_dict['MetalMassFractions']
 
         snapshot_hdf5 = snapshot_file + '.hdf5'
 

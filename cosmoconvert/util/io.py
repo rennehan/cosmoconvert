@@ -295,18 +295,29 @@ def read_tipsy(file_name, header_only = False, has_pad = True):
 def write_swift(file_name, header, data_dict):
     with h5py.File(file_name, 'w') as f:
         h = f.create_group('Header')
-
         h.attrs['NumPart_ThisFile'] = header['npart']
         h.attrs['NumPart_Total'] = header['npart']
         h.attrs['NumPart_Total_HighWord'] = 0 * header['npart']
-        h.attrs['MassTable'] = np.zeros(6)
+        h.attrs['MassTable'] = np.zeros(7)
+        h.attrs['NumPartTypes'] = np.array(7)
         h.attrs['Time'] = header['time']
         h.attrs['Redshift'] = header['redshift']
         h.attrs['BoxSize'] = header['box_size']
-        h.attrs['OmegaMatter'] = header['omega_matter']
-        h.attrs['OmegaLambda'] = header['omega_lambda']
-        h.attrs['HubbleParam'] = header['hubble_constant']
         h.attrs['Flag_Entropy_ICs'] = header['flag_entropy_ics']
+
+        p = f.create_group('Parameters')
+        p.attrs['Cosmology:Omega_b'] = header['omega_baryon']
+        p.attrs['Cosmology:Omega_cdm'] = header['omega_matter'] - header['omega_baryon']
+        p.attrs['Cosmology:Omega_lambda'] = header['omega_lambda']
+        p.attrs['Cosmology:Omega_m'] = header['omega_matter']
+        p.attrs['Cosmology:h'] = header['hubble_constant']
+
+        u = f.create_group('Units')
+        u.attrs['Unit current in cgs (U_I)'] = header['unit_current']
+        u.attrs['Unit length in cgs (U_L)'] = header['unit_length']
+        u.attrs['Unit mass in cgs (U_M)'] = header['unit_mass']
+        u.attrs['Unit temperature in cgs (U_T)'] = header['unit_temperature']
+        u.attrs['Unit time in cgs (U_t)'] = header['unit_time']
 
         for part_type in data_dict:
             p = f.create_group(part_type)

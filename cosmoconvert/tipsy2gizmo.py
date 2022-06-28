@@ -88,7 +88,7 @@ class tipsy2gizmo(object):
             header['gizmo']['redshift'] = (1.0 / header['time']) - 1.0
         header['gizmo']['npart'] = np.array([header['ngas'], header['ndark'], 0, 0, header['nstar'], 0])
         header['gizmo']['box_size'] = self.box_size * util.const.KPC_PER_MPC
-        header['gizmo']['omega0'] = cosmology['omega0']
+        header['gizmo']['omega0'] = cosmology['omega_matter']
         header['gizmo']['omega_lambda'] = cosmology['omega_lambda']
         header['gizmo']['hubble_constant'] = self.hubble_constant
         header['gizmo']['flag_sfr'] = 1
@@ -121,20 +121,22 @@ class tipsy2gizmo(object):
         # immediately and tell the user.
         gas_data, dark_data, star_data, byte_swap = util.io.read_tipsy(snapshot_file)
 
-        gas_data = gas_data.view(gas_data.dtype[0]).reshape(gas_data.shape + (-1,))
-        if len(gas_data) != header['ngas']:
-            raise ValueError('Gas data array length does not match header (%d != %d)'
-                             % (len(gas_data), header['ngas']))
+        if header['ngas'] > 0:
+            gas_data = gas_data.view(gas_data.dtype[0]).reshape(gas_data.shape + (-1,))
+            if len(gas_data) != header['ngas']:
+                raise ValueError('Gas data array length does not match header (%d != %d)'
+                                 % (len(gas_data), header['ngas']))
 
         dark_data = dark_data.view(dark_data.dtype[0]).reshape(dark_data.shape + (-1,))
         if len(dark_data) != header['ndark']:
             raise ValueError('Dark data array length does not match header (%d != %d)'
                              % (len(dark_data), header['ndark']))
 
-        star_data = star_data.view(star_data.dtype[0]).reshape(star_data.shape + (-1,))
-        if len(star_data) != header['nstar']:
-            raise ValueError('Star data array length does not match header (%d != %d)'
-                             % (len(star_data), header['nstar']))
+        if header['nstar'] > 0:
+            star_data = star_data.view(star_data.dtype[0]).reshape(star_data.shape + (-1,))
+            if len(star_data) != header['nstar']:
+                raise ValueError('Star data array length does not match header (%d != %d)'
+                                 % (len(star_data), header['nstar']))
 
         particle_ids = None
         unique = True
@@ -152,43 +154,45 @@ class tipsy2gizmo(object):
         util.io.info('Successfully read TIPSY data, shifting particle positions now.')
 
         # Make sure all of the particles are within the range [0, 1.0]
-        self._shift_particle_positions(gas_data, dark_data, star_data)
+        self._shift_particle_positions(gas_data, dark_data, star_data, header)
 
         pos_indices = [self.pos_x_idx, self.pos_y_idx, self.pos_z_idx]
         vel_indices = [self.vel_x_idx, self.vel_y_idx, self.vel_z_idx]
 
-        # Gas properties
-        util.io.info('Building GIZMO gas dictionary.')
-        start_idx = 1
-        final_idx = header['ngas'] + 1
+        final_idx = 1
+        if header['ngas'] > 0:
+            # Gas properties
+            util.io.info('Building GIZMO gas dictionary.')
+            start_idx = 1
+            final_idx = header['ngas'] + 1
 
-        if particle_ids is not None:
-            gas_dict['ParticleIDs'] = particle_ids[start_idx - 1:final_idx - 1]
-            assert len(np.unique(gas_dict['ParticleIDs'])) == len(gas_dict['ParticleIDs'])
-        else:
-            gas_dict['ParticleIDs'] = np.arange(start_idx, final_idx)
+            if particle_ids is not None:
+                gas_dict['ParticleIDs'] = particle_ids[start_idx - 1:final_idx - 1]
+                assert len(np.unique(gas_dict['ParticleIDs'])) == len(gas_dict['ParticleIDs'])
+            else:
+                gas_dict['ParticleIDs'] = np.arange(start_idx, final_idx)
 
-        gas_dict['Masses'] = gas_data[:, self.mass_idx] * mass_factor
-        gas_dict['Density'] = gas_data[:, self.rho_idx] * density_factor
+            gas_dict['Masses'] = gas_data[:, self.mass_idx] * mass_factor
+            gas_dict['Density'] = gas_data[:, self.rho_idx] * density_factor
 
-        gas_dict['Coordinates'] = np.zeros((header['ngas'], 3))
-        for i, j in enumerate(pos_indices):
-            gas_dict['Coordinates'][:, i] = gas_data[:, j] * length_factor
+            gas_dict['Coordinates'] = np.zeros((header['ngas'], 3))
+            for i, j in enumerate(pos_indices):
+                gas_dict['Coordinates'][:, i] = gas_data[:, j] * length_factor
 
-        gas_dict['Velocities'] = np.zeros((header['ngas'], 3))
-        for i, j in enumerate(vel_indices):
-            gas_dict['Velocities'][:, i] = gas_data[:, j] * velocity_factor
+            gas_dict['Velocities'] = np.zeros((header['ngas'], 3))
+            for i, j in enumerate(vel_indices):
+                gas_dict['Velocities'][:, i] = gas_data[:, j] * velocity_factor
 
-        gas_dict['SmoothingLength'] = gas_data[:, self.hsmooth_idx] * length_factor
+            gas_dict['SmoothingLength'] = gas_data[:, self.hsmooth_idx] * length_factor
 
-        gas_dict['Metallicity'] = np.zeros((header['ngas'], header['gizmo']['flag_metals']))
-        gas_dict['Metallicity'][:, 0] = gas_data[:, self.metals_gas_idx]
+            gas_dict['Metallicity'] = np.zeros((header['ngas'], header['gizmo']['flag_metals']))
+            gas_dict['Metallicity'][:, 0] = gas_data[:, self.metals_gas_idx]
 
-        # Save this for later when we have electron abundances
-        int_energies = gas_data[:, self.temp_idx]
+            # Save this for later when we have electron abundances
+            int_energies = gas_data[:, self.temp_idx]
 
-        # We don't need this anymore, free the memory.
-        del gas_data
+            # We don't need this anymore, free the memory.
+            del gas_data
 
         # Dark properties
         util.io.info('Building GIZMO dark matter dictionary.')
@@ -213,45 +217,47 @@ class tipsy2gizmo(object):
 
         del dark_data
 
-        # Star properties
-        util.io.info('Building GIZMO star dictionary.')
-        start_idx = final_idx
-        final_idx += header['nstar']
+        if header['nstar'] > 0:
+            # Star properties
+            util.io.info('Building GIZMO star dictionary.')
+            start_idx = final_idx
+            final_idx += header['nstar']
 
-        if particle_ids is not None and unique:
-            star_dict['ParticleIDs'] = particle_ids[start_idx - 1:final_idx - 1]
-        else:
-            max_gas_id = np.amax(gas_dict['ParticleIDs'])
-            max_dark_id = np.amax(dark_dict['ParticleIDs'])
-
-            if max_gas_id > max_dark_id:
-                start_value = max_gas_id
+            if particle_ids is not None and unique:
+                star_dict['ParticleIDs'] = particle_ids[start_idx - 1:final_idx - 1]
             else:
-                start_value = max_dark_id
+                max_gas_id = np.amax(gas_dict['ParticleIDs'])
+                max_dark_id = np.amax(dark_dict['ParticleIDs'])
 
-            util.io.info('Maximum gas/dark ParticleID: %d' % start_value)
-            star_dict['Old_ParticleIDs'] = particle_ids[start_idx - 1:final_idx - 1]
-            star_dict['ParticleIDs'] = np.arange(start_value + 1, start_value + 1 + header['nstar'])
-            util.io.info('New maximum star ParticleID: %d' % np.amax(star_dict['ParticleIDs']))
+                if max_gas_id > max_dark_id:
+                    start_value = max_gas_id
+                else:
+                    start_value = max_dark_id
 
-            assert len(np.unique(star_dict['ParticleIDs'])) == len(star_dict['ParticleIDs'])
+                util.io.info('Maximum gas/dark ParticleID: %d' % start_value)
+                star_dict['Old_ParticleIDs'] = particle_ids[start_idx - 1:final_idx - 1]
+                star_dict['ParticleIDs'] = np.arange(start_value + 1, start_value + 1 + header['nstar'])
+                util.io.info('New maximum star ParticleID: %d' % np.amax(star_dict['ParticleIDs']))
 
-        star_dict['Masses'] = star_data[:, self.mass_idx] * mass_factor
+                assert len(np.unique(star_dict['ParticleIDs'])) == len(star_dict['ParticleIDs'])
 
-        star_dict['Coordinates'] = np.zeros((header['nstar'], 3))
-        for i, j in enumerate(pos_indices):
-            star_dict['Coordinates'][:, i] = star_data[:, j] * length_factor
+            star_dict['Masses'] = star_data[:, self.mass_idx] * mass_factor
 
-        star_dict['Velocities'] = np.zeros((header['nstar'], 3))
-        for i, j in enumerate(vel_indices):
-            star_dict['Velocities'][:, i] = star_data[:, j] * velocity_factor
+            star_dict['Coordinates'] = np.zeros((header['nstar'], 3))
+            for i, j in enumerate(pos_indices):
+                star_dict['Coordinates'][:, i] = star_data[:, j] * length_factor
 
-        star_dict['StellarFormationTime'] = star_data[:, self.tform_idx] * time_factor
+            star_dict['Velocities'] = np.zeros((header['nstar'], 3))
+            for i, j in enumerate(vel_indices):
+                star_dict['Velocities'][:, i] = star_data[:, j] * velocity_factor
 
-        star_dict['Metallicity'] = np.zeros((header['nstar'], header['gizmo']['flag_metals']))
-        star_dict['Metallicity'][:, 0] = star_data[:, self.metals_star_idx]
+            star_dict['StellarFormationTime'] = star_data[:, self.tform_idx] * time_factor
 
-        del star_data
+            star_dict['Metallicity'] = np.zeros((header['nstar'], header['gizmo']['flag_metals']))
+            star_dict['Metallicity'][:, 0] = star_data[:, self.metals_star_idx]
+
+
+            del star_data
 
         if aux_file is not None:
             util.io.info('Loading auxiliary file %s' % aux_file)
@@ -305,8 +311,10 @@ class tipsy2gizmo(object):
             del star_data
 
         # Set the Helium mass fraction.
-        gas_dict['Metallicity'][:, 1] = 0.236 + (2.1 * gas_dict['Metallicity'][:, 0])
-        star_dict['Metallicity'][:, 1] = 0.236 + (2.1 * star_dict['Metallicity'][:, 0])
+        if header['ngas'] > 0:
+            gas_dict['Metallicity'][:, 1] = 0.236 + (2.1 * gas_dict['Metallicity'][:, 0])
+        if header['nstar'] > 0:
+            star_dict['Metallicity'][:, 1] = 0.236 + (2.1 * star_dict['Metallicity'][:, 0])
 
         snapshot_hdf5 = snapshot_file + '.hdf5'
 
@@ -315,20 +323,22 @@ class tipsy2gizmo(object):
         # Finally! Write the GIZMO file out :)
         util.io.write_gizmo(snapshot_hdf5, header['gizmo'], gizmo_dict)
 
-    def _shift_particle_positions(self, gas, dark, star):
+    def _shift_particle_positions(self, gas, dark, star, header):
         for i in range(self.pos_x_idx, self.pos_z_idx + 1):
-            gas[:, i] += 0.5
+            if header['ngas'] > 0:
+                gas[:, i] += 0.5
+                out_idx = np.where(gas[:, i] > 1.0)
+                gas[out_idx, i] -= 1.0
+
+            if header['nstar'] > 0:
+                star[:, i] += 0.5
+                out_idx = np.where(star[:, i] > 1.0)
+                star[out_idx, i] -= 1.0
+
             dark[:, i] += 0.5
-            star[:, i] += 0.5
-
-            out_idx = np.where(gas[:, i] > 1.0)
-            gas[out_idx, i] -= 1.0
-
             out_idx = np.where(dark[:, i] > 1.0)
             dark[out_idx, i] -= 1.0
 
-            out_idx = np.where(star[:, i] > 1.0)
-            star[out_idx, i] -= 1.0
 
     def _set_gizmo_units(self):
         self.gizmo_length = 3.085678e21 / self.hubble_constant  # 1 kpc/h
