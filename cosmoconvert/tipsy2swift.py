@@ -121,6 +121,8 @@ class tipsy2swift(object):
 
         # Swift has a scale factor in the internal energy
         specific_energy_factor *= header['time']**2.0
+        # Swift has a scaler factor in velocity
+        velocity_factor *= header['time']
 
         # Read in all of the snapshot file data and check if it matches
         # what we read in the header. If it doesn't match what is in the
