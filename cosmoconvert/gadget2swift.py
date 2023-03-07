@@ -2,7 +2,7 @@ import numpy as np
 from . import util
 import pygadgetreader as pygr
 
-class gizmo2swift(object):
+class gadget2swift(object):
     
     def __init__(self, snapshot_file, omega_baryon=0., verbose=True):
 
@@ -51,8 +51,7 @@ class gizmo2swift(object):
         header['swift']['unit_time'] = self.swift_time
 
         util.io.info('Reading %s' % snapshot_file)
-        util.io.info('Box size %s Mpc' % self.box_size)
-        util.io.info('Gizmo+Swift Header:')
+        util.io.info('Swift Header:')
 
         print(header)
 
@@ -77,10 +76,10 @@ class gizmo2swift(object):
         if self.ngas > 0:
             util.io.info('Building Swift gas dictionary.')
 
-            gas_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'gas')
-            gas_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'gas') * mass_factor
-            gas_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'gas') * length_factor
-            gas_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'gas') * velocity_factor
+            gas_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'gas', suppress=1)
+            gas_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'gas', suppress=1) * mass_factor
+            gas_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'gas', suppress=1) * length_factor
+            gas_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'gas', suppress=1) * velocity_factor
             # estimate smoothing length for 64 neighbors in a uniform grid; this will be recomputed in Swift
             hsm = self.box_size * np.cbrt(64 / self.ngas) 
             gas_dict['SmoothingLength'] = hsm * np.ones(self.ngas) * length_factor
@@ -101,19 +100,19 @@ class gizmo2swift(object):
         if self.ndm > 0:
             util.io.info('Building Swift dark matter dictionary.')
 
-            dark_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'dm')
-            dark_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'dm') * mass_factor
-            dark_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'dm') * length_factor
-            dark_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'dm') * velocity_factor
+            dark_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'dm', suppress=1)
+            dark_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'dm', suppress=1) * mass_factor
+            dark_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'dm', suppress=1) * length_factor
+            dark_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'dm', suppress=1) * velocity_factor
 
         if self.nstar > 0:
             # Star properties
             util.io.info('Building Swift star dictionary.')
 
-            star_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'star')
-            star_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'star') * mass_factor
-            star_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'star') * length_factor
-            star_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'star') * velocity_factor
+            star_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'star', suppress=1)
+            star_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'star', suppress=1) * mass_factor
+            star_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'star', suppress=1) * length_factor
+            star_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'star', suppress=1) * velocity_factor
 
         # Set the Hydrogen & Helium mass fraction.
         #if header['ngas'] > 0:
