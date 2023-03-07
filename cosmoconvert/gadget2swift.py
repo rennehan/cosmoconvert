@@ -81,15 +81,11 @@ class gadget2swift(object):
             gas_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'gas', suppress=1) * length_factor
             gas_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'gas', suppress=1) * velocity_factor
             # estimate smoothing length for 64 neighbors in a uniform grid; this will be recomputed in Swift
-            hsm = self.box_size * np.cbrt(64 / self.ngas) 
+            hsm = header['swift']['box_size'] * np.cbrt(64. / self.ngas) 
             gas_dict['SmoothingLength'] = hsm * np.ones(self.ngas) * length_factor
-            gas_dict['Density'] = gas_dict['Masses'] / (4*np.pi/3. * gas_dict['SmoothingLength']**3)
+            gas_dict['Density'] = gas_dict['Masses'] / (4.*np.pi/3 * gas_dict['SmoothingLength']**3)
 
-            #gas_dict['ElementMassFractions'] = np.zeros((header['ngas'], header['swift']['flag_metals']))
-            #gas_dict['MetalMassFractions'] = np.zeros(header['ngas'])
-            #gas_dict['MetalMassFractions'] = gas_data[:, self.metals_gas_idx]
-
-            # Assume primordial gas at CMB temperature
+            # Assume neutral primordial gas at CMB temperature
             int_energies = 2.73 * (1. + header['swift']['redshift'])  # initial temperature
             XH = 0.75  # H mass fraction
             mu = 4. / (1 + 3 * XH)  
