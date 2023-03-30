@@ -8,6 +8,7 @@ class gadget2swift(object):
 
         util.io.verbose = verbose
 
+        self.redshift = pygr.readheader(snapshot_file, 'redshift')
         self.hubble_constant = pygr.readheader(snapshot_file, 'h')
         self.box_size = pygr.readheader(snapshot_file, 'boxsize')
         self.ngas = pygr.readheader(snapshot_file, 'gascount')
@@ -34,7 +35,7 @@ class gadget2swift(object):
         # Add on Swift header data
         header['swift'] = {}
         header['swift']['time'] = pygr.readheader(snapshot_file, 'time')
-        header['swift']['redshift'] = pygr.readheader(snapshot_file, 'redshift')
+        header['swift']['redshift'] = self.redshift
         header['swift']['npart'] = np.array([self.ngas, self.ndm, 0, 0, self.nstar, 0, 0])
         header['swift']['box_size'] = self.box_size * self.gizmo_length / self.swift_length
         header['swift']['omega_matter'] = pygr.readheader(snapshot_file, 'O0')
@@ -129,7 +130,7 @@ class gadget2swift(object):
     def _set_gizmo_units(self):
         self.gizmo_length = 3.085678e21 / self.hubble_constant  # 1 kpc/h
         self.gizmo_mass = 1.989e43 / self.hubble_constant       # 1e10 Msun/h
-        self.gizmo_velocity = 1.0e5                             # 1 km/s
+        self.gizmo_velocity = 1.0e5 * np.sqrt(1.+self.redshift) # 1 km/s, plus Gadget's weird 1/sqrt(a) factor
 
         self.gizmo_specific_energy = self.gizmo_velocity**2
         self.gizmo_density = self.gizmo_mass / self.gizmo_length**3
