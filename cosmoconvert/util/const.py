@@ -13,7 +13,7 @@ METAL_FIELDS = ['hydrogen',
                 'calcium',
                 'iron']
 
-CONSOLE_STRING = 'gallus'
+CONSOLE_STRING = 'cosmoconvert'
 MIN_COUNT = 5
 GAMMA = 5.0 / 3.0
 CM_PER_MPC = 3.085678e24  # cm / Mpc

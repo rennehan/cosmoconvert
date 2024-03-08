@@ -8,7 +8,7 @@ import numpy as np
 import h5py
 
 
-console_string = 'gallus'
+console_string = 'cosmoconvert'
 verbose = False
 
 

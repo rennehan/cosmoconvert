@@ -182,7 +182,6 @@ class tipsy2swift(object):
                 gas_dict['ParticleIDs'] = np.arange(start_idx, final_idx)
 
             gas_dict['Masses'] = gas_data[:, self.mass_idx] * mass_factor
-            gas_dict['Density'] = gas_data[:, self.rho_idx] * density_factor
 
             gas_dict['Coordinates'] = np.zeros((header['ngas'], 3))
             for i, j in enumerate(pos_indices):
@@ -192,7 +191,12 @@ class tipsy2swift(object):
             for i, j in enumerate(vel_indices):
                 gas_dict['Velocities'][:, i] = gas_data[:, j] * velocity_factor
 
-            gas_dict['SmoothingLength'] = gas_data[:, self.hsmooth_idx] * length_factor
+            hsml = header['swift']['box_size'] * np.cbrt(48.0 / header['ngas'])
+            gas_dict['SmoothingLength'] = hsml * np.ones(header['ngas'])  # Already in swift units
+            del hsml
+
+            # Need to estimate density for Swift
+            gas_dict['Density'] = 3.0 * gas_dict['Masses'] / (4.0 * np.pi * gas_dict['SmoothingLength']**3)
 
             #gas_dict['ElementMassFractions'] = np.zeros((header['ngas'], header['swift']['flag_metals']))
             #gas_dict['MetalMassFractions'] = np.zeros(header['ngas'])
