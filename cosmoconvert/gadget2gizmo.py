@@ -13,7 +13,10 @@ class gadget2gizmo(object):
         self.box_size = pygr.readheader(snapshot_file, 'boxsize')
         self.ngas = pygr.readheader(snapshot_file, 'gascount')
         self.ndm = pygr.readheader(snapshot_file, 'dmcount')
+        self.ndisk = pygr.readheader(snapshot_file, 'diskcount')
+        self.nbulge = pygr.readheader(snapshot_file, 'bulgecount')
         self.nstar = pygr.readheader(snapshot_file, 'starcount')
+        self.nbh = pygr.readheader(snapshot_file, 'bndrycount')
 
         # Calculate the necessary units for conversion.
         # The GIZMO units are default:
@@ -38,20 +41,20 @@ class gadget2gizmo(object):
         header['gizmo'] = {}
         header['gizmo']['time'] = pygr.readheader(snapshot_file, 'time')
         header['gizmo']['redshift'] = self.redshift
-        header['gizmo']['npart'] = np.array([self.ngas, self.ndm, self.ndisk, self.bulge, self.nstar, self.nbh])
+        header['gizmo']['npart'] = np.array([self.ngas, self.ndm, self.ndisk, self.nbulge, self.nstar, self.nbh])
         header['gizmo']['box_size'] = self.box_size * self.gadget_length / self.gizmo_length
-        header['gizmo']['omega_matter'] = pygr.readheader(snapshot_file, 'O0')
+        header['gizmo']['omega0'] = pygr.readheader(snapshot_file, 'O0')
         header['gizmo']['omega_baryon'] = omega_baryon
         header['gizmo']['omega_lambda'] = pygr.readheader(snapshot_file, 'Ol')
         header['gizmo']['hubble_constant'] = self.hubble_constant
-        header['gizmo']['flag_entropy_ics'] = 0
-        header['gizmo']['flag_metals'] = 9
+        header['gizmo']['flag_sfr'] = 1
+        header['gizmo']['flag_cooling'] = 1
+        header['gizmo']['flag_stellarage'] = 1
+        header['gizmo']['flag_metals'] = 11
+        header['gizmo']['flag_feedback'] = 1
+        header['gizmo']['flag_doubleprecision'] = 0#pygr.readheader(snapshot_file, 'doubleprecision')
+        header['gizmo']['flag_ic_info'] = 0
 
-        header['gizmo']['unit_current'] = 1.0
-        header['gizmo']['unit_temperature'] = 1.0
-        header['gizmo']['unit_length'] = self.gizmo_length
-        header['gizmo']['unit_mass'] = self.gizmo_mass
-        header['gizmo']['unit_time'] = self.gizmo_time
 
         util.io.info('Reading %s' % snapshot_file)
         util.io.info('GIZMO Header:')
