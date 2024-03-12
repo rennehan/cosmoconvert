@@ -3,8 +3,9 @@ from . import util
 import pygadgetreader as pygr
 
 class gadget2gizmo(object):
-    
-    def __init__(self, snapshot_file, omega_baryon = 0.0, verbose = True):
+   
+    # It is always safer to assume double precision when writing out the HDF5 file 
+    def __init__(self, snapshot_file, omega_baryon = 0.0, doubleprecision = True, verbose = True):
 
         util.io.verbose = verbose
 
@@ -52,7 +53,7 @@ class gadget2gizmo(object):
         header['gizmo']['flag_stellarage'] = 1
         header['gizmo']['flag_metals'] = 11
         header['gizmo']['flag_feedback'] = 1
-        header['gizmo']['flag_doubleprecision'] = 0#pygr.readheader(snapshot_file, 'doubleprecision')
+        header['gizmo']['flag_doubleprecision'] = doubleprecision # TODO: pygr.readheader(snapshot_file, 'doubleprecision')
         header['gizmo']['flag_ic_info'] = 0
 
 
