@@ -13,6 +13,8 @@ class gadget2swift(object):
         self.box_size = pygr.readheader(snapshot_file, 'boxsize')
         self.ngas = pygr.readheader(snapshot_file, 'gascount')
         self.ndm = pygr.readheader(snapshot_file, 'dmcount')
+        self.ndisk = pygr.readheader(snapshot_file, 'diskcount')
+        self.nbulge = pygr.readheader(snapshot_file, 'bulgecount')
         self.nstar = pygr.readheader(snapshot_file, 'starcount')
 
         # Calculate the necessary units for conversion.
@@ -24,11 +26,16 @@ class gadget2swift(object):
         self._set_swift_units()
 
         # This is the standard format for Swift files.
-        swift_dict = dict(PartType0 = {}, PartType1 = {}, PartType4 = {})
+        if (self.ndisk>0) or (self.nbulge>0):
+            swift_dict = dict(PartType0 = {}, PartType1 = {}, PartType2 = {}, PartType4 = {})
+        else:
+            swift_dict = dict(PartType0 = {}, PartType1 = {}, PartType4 = {})
 
         gas_dict = swift_dict['PartType0']
         dark_dict = swift_dict['PartType1']
         star_dict = swift_dict['PartType4']
+        if self.ndisk>0 or self.nbulge>0:
+            bgp_dict = swift_dict['PartType2']
 
         header = {}
 
@@ -36,7 +43,7 @@ class gadget2swift(object):
         header['swift'] = {}
         header['swift']['time'] = pygr.readheader(snapshot_file, 'time')
         header['swift']['redshift'] = self.redshift
-        header['swift']['npart'] = np.array([self.ngas, self.ndm, 0, 0, self.nstar, 0, 0])
+        header['swift']['npart'] = np.array([self.ngas, self.ndm, self.ndisk+self.nbulge, 0, self.nstar, 0, 0])
         header['swift']['box_size'] = self.box_size * self.gizmo_length / self.swift_length
         header['swift']['omega_matter'] = pygr.readheader(snapshot_file, 'O0')
         header['swift']['omega_baryon'] = omega_baryon
@@ -101,6 +108,26 @@ class gadget2swift(object):
             dark_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'dm', suppress=1) * mass_factor
             dark_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'dm', suppress=1) * length_factor
             dark_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'dm', suppress=1) * velocity_factor
+
+        if self.ndisk>0:
+            util.io.info('Building Swift disk dictionary.')
+            bgp_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'disk', suppress=1)
+            bgp_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'disk', suppress=1) * mass_factor
+            bgp_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'disk', suppress=1) * length_factor
+            bgp_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'disk', suppress=1) * velocity_factor
+
+        if self.nbulge>0:
+            util.io.info('Building Swift bulge dictionary.')
+            if self.ndisk>0:
+                bgp_dict['ParticleIDs'] = np.concatenate((bgp_dict['ParticleIDs'],pygr.readsnap(snapshot_file, 'pid', 'bulge', suppress=1)))
+                bgp_dict['Masses'] = np.concatenate((bgp_dict['Masses'],pygr.readsnap(snapshot_file, 'mass', 'bulge', suppress=1) * mass_factor))
+                bgp_dict['Coordinates'] = np.concatenate((bgp_dict['Coordinates'],pygr.readsnap(snapshot_file, 'pos', 'bulge', suppress=1) * length_factor))
+                bgp_dict['Velocities'] = np.concatenate((bgp_dict['Velocities'],pygr.readsnap(snapshot_file, 'vel', 'bulge', suppress=1) * velocity_factor))
+            else:
+                bgp_dict['ParticleIDs'] = pygr.readsnap(snapshot_file, 'pid', 'bulge', suppress=1)
+                bgp_dict['Masses'] = pygr.readsnap(snapshot_file, 'mass', 'bulge', suppress=1) * mass_factor
+                bgp_dict['Coordinates'] = pygr.readsnap(snapshot_file, 'pos', 'bulge', suppress=1) * length_factor
+                bgp_dict['Velocities'] = pygr.readsnap(snapshot_file, 'vel', 'bulge', suppress=1) * velocity_factor
 
         if self.nstar > 0:
             # Star properties
