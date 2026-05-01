@@ -353,3 +353,33 @@ def write_gizmo(file_name, header, data_dict):
 
             for key in data_dict[part_type]:
                 p.create_dataset(key, data = data_dict[part_type][key])
+
+
+def write_gadget(file_name, header, data_dict):
+    with h5py.File(file_name, "w") as f:
+        h = f.create_group("Header")
+
+        h.attrs["NumPart_ThisFile"] = header["npart"]
+        h.attrs["NumPart_Total"] = header["npart"] & 0xFFFFFFFF  # lower 32 bits
+        h.attrs["NumPart_Total_HighWord"] = header["npart"] >> 32  # upper 32 bits
+        h.attrs["MassTable"] = np.zeros(6)
+        h.attrs["Time"] = header["time"]
+        h.attrs["Redshift"] = header["redshift"]
+        h.attrs["BoxSize"] = header["box_size"]
+        h.attrs["NumFilesPerSnapshot"] = 1
+        h.attrs["Omega0"] = header["omega0"]
+        h.attrs["OmegaLambda"] = header["omega_lambda"]
+        h.attrs["HubbleParam"] = header["hubble_constant"]
+        h.attrs["Flag_Sfr"] = header["flag_sfr"]
+        h.attrs["Flag_Cooling"] = header["flag_cooling"]
+        h.attrs["Flag_StellarAge"] = header["flag_stellarage"]
+        h.attrs["Flag_Metal"] = header["flag_metals"]
+        h.attrs["Flag_Feedback"] = header["flag_feedback"]
+        h.attrs["Flag_DoublePrecision"] = header["flag_doubleprecision"]
+        h.attrs["Flag_IC_Info"] = header["flag_ic_info"]
+
+        for part_type in data_dict:
+            p = f.create_group(part_type)
+
+            for key in data_dict[part_type]:
+                p.create_dataset(key, data=data_dict[part_type][key])
